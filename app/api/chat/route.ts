@@ -1,13 +1,10 @@
-import { NextRequest, NextResponse } from "next/server"
-import Anthropic from "@anthropic-ai/sdk"
+import { NextResponse } from "next/server"
+import { anthropic } from "@ai-sdk/anthropic"
+import { generateText } from "ai"
 
 export const runtime = "nodejs"
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const body = await req.json()
     const messages = body.messages || []
@@ -15,9 +12,8 @@ export async function POST(req: NextRequest) {
     const lastUserMessage =
       messages[messages.length - 1]?.content || "Hello"
 
-    const response = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307", // ✅ guaranteed access
-      max_tokens: 800,
+    const result = await generateText({
+      model: anthropic("claude-3-haiku-20240307"),
       system: `
 You are an AI Sales Coach.
 
@@ -28,21 +24,13 @@ You are an AI Sales Coach.
 
 Be realistic, practical, and conversational.
 `,
-      messages: [
-        {
-          role: "user",
-          content: lastUserMessage,
-        },
-      ],
+      prompt: lastUserMessage,
+      maxOutputTokens: 800,
     })
 
-    // ✅ SAFE TEXT EXTRACTION
-    const text = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => block.text)
-      .join("\n")
-
-    return NextResponse.json({ text })
+    return NextResponse.json({
+      text: result.text,
+    })
   } catch (error) {
     console.error("CHAT API ERROR:", error)
     return NextResponse.json(
